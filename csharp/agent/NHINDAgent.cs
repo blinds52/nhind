@@ -62,10 +62,9 @@ namespace NHINDirect.Agent
         bool m_encryptionEnabled = true;
         bool m_wrappingEnabled = true;
         bool m_allowNonWrappedIncoming = true;
-        bool m_fetchIncomingSenderCerts = false;
         
 		/// <summary>
-		/// Creates an NHINDAgent instance using local certificate stores. 
+		/// Creates an NHINDAgent instance using local certificate stores and the standard trust and cryptography models.
 		/// </summary>
 		/// <param name="domain">
 		/// The local domain name managed by this agent.
@@ -78,7 +77,8 @@ namespace NHINDirect.Agent
         }
 		
 		/// <summary>
-		/// Creates an NHINDAgent instance, specifying private, external and trust anchor certificate stores.
+		/// Creates an NHINDAgent instance, specifying private, external and trust anchor certificate stores, and
+		/// and defaulting to the standard trust and cryptography models.
 		/// </summary>
 		/// <param name="domain">
 		/// The local domain name managed by this agent.
@@ -99,6 +99,30 @@ namespace NHINDirect.Agent
         {
         }
 
+		/// <summary>
+		/// Creates an NHINDAgent instance, specifying private, external and trust anchor certificate stores, and 
+		/// trust and cryptography models.
+		/// </summary>
+		/// <param name="domain">
+		/// The local domain name managed by this agent.
+		/// </param>
+		/// <param name="privateCerts">
+		/// An <see cref="NHINDirect.Certificates.ICertificateResolver"/> instance providing private certificates
+		/// for senders of outgoing messages and receivers of incoming messages.
+		/// </param>
+		/// <param name="publicCerts">
+		/// An <see cref="NHINDirect.Certificates.ICertificateResolver"/> instance providing public certificates 
+		/// for receivers of outgoing messages and senders of incoming messages. 
+		/// </param>
+		/// <param name="anchors">
+		/// An <see cref="NHINDirect.Certificates.ITrustAnchorResolver"/> instance providing trust anchors.
+		/// </param>
+		/// <param name="trustModel">
+		/// An instance or subclass of <see cref="NHINDirect.Agent.TrustModel"/> providing a custom trust model.
+		/// </param>
+		/// <param name="cryptographer">
+		/// An instance or subclass of <see cref="NHINDirect.Cryptography.SMIMECryptographer"/> providing a custom cryptography model.
+		/// </param>
         public NHINDAgent(string domain, ICertificateResolver privateCerts, ICertificateResolver publicCerts, ITrustAnchorResolver anchors, TrustModel trustModel, SMIMECryptographer cryptographer)
         {
             if (string.IsNullOrEmpty(domain))
@@ -136,6 +160,10 @@ namespace NHINDirect.Agent
             this.m_minTrustRequirement = TrustEnforcementStatus.Success_Offline;
         }
 
+		/// <summary>
+		/// The domain this agent is managing.
+		/// </summary>
+		/// <value>A string value providing a fully qualified domain name.</value>
         public string Domain
         {
             get
@@ -144,6 +172,10 @@ namespace NHINDirect.Agent
             }
         }
 
+		/// <summary>
+		/// Gets the cryptographic model used by this agent.
+		/// </summary>
+		/// <value>The cryptographic model used by this agent.</value>
         public SMIMECryptographer Cryptographer
         {
             get
@@ -152,6 +184,10 @@ namespace NHINDirect.Agent
             }
         }
 
+		/// <summary>
+		/// Gets or sets whether this agent uses message encryption.
+		/// </summary>
+		/// <value><c>true</c> (default) if the agent encrypts, <c>false</c> if the agent does not.</value>
         public bool EncryptMessages
         {
             get
@@ -164,6 +200,11 @@ namespace NHINDirect.Agent
             }
         }
         
+		/// <summary>
+		/// Gets or sets whether this agent wraps the entire message or just the content package. 
+		/// </summary>
+		/// <value><c>true</c> if the agent wraps the entire message (including headers) prior to encryption; 
+		/// <c>false</c> if the agent just signs and encrypts the content package.</value>
         public bool WrapMessages
         {
             get
@@ -176,6 +217,11 @@ namespace NHINDirect.Agent
             }
         }
         
+		/// <summary>
+		/// Gets or sets whether this agent allows non-fully wrapped incoming messages
+		/// (e.g., where the content-type of the incoming message is not <c>message/rfc822</c> 
+		/// </summary>
+		/// <value><c>true</c> if this agent allows non-wrapped incoming messages; <c>false<c> if only wrapped messages are allowed</value>
         public bool AllowNonWrappedIncoming
         {
             get
@@ -188,18 +234,12 @@ namespace NHINDirect.Agent
             }
         }
         
-        public bool FetchSenderCertsIncoming
-        {
-            get
-            {
-                return m_fetchIncomingSenderCerts;
-            }
-            set
-            {
-                m_fetchIncomingSenderCerts = value;
-            }
-        }
-        
+		/// <summary>
+		/// Gets the public certificate resolver (set in the constructor). 
+		/// </summary>
+		/// <value>
+		/// The <see cref="NHINDirect.Certificates.ICertificateResolver" instance used for resolving public certificates.
+		/// </value>
         public ICertificateResolver PublicCertResolver
         {
             get
@@ -208,6 +248,12 @@ namespace NHINDirect.Agent
             }
         }
 
+		/// <summary>
+		/// Gets the private certificate resolver (set in the constructor). 
+		/// </summary>
+		/// <value>
+		/// The <see cref="NHINDirect.Certificates.ICertificateResolver" instance used for resolving private certificates.
+		/// </value>
         public ICertificateResolver PrivateCertResolver
         {
             get
@@ -216,6 +262,12 @@ namespace NHINDirect.Agent
             }
         }
 
+		/// <summary>
+		/// Getst the trust anchor resolver (set in the constructor). 
+		/// </summary>
+		/// <value>
+		/// The <see cref="NHINDirect.Certificates.ITrustAnchorResolver" instance used for resolving trust anchors.
+		/// </value>		
         public ITrustAnchorResolver TrustAnchors
         {
             get
@@ -250,19 +302,53 @@ namespace NHINDirect.Agent
         //   - throwing exceptions
         // If you throw an exception, message processing is ABORTED
         //
+		/// <summary>
+		/// Subscribe to this event for notification when the Agent raises an exception. 
+		/// </summary>
         public event Action<NHINDAgent, Exception> Error;
+		/// <summary>
+		/// Subscribe to this event for pre-processing of the <see cref="IncomingMessage"/>, including adding or modifying headers.
+		/// Throwing an exception pre-process will abort message processing.
+		/// </summary>
         public event Action<IncomingMessage> PreProcessIncoming;
+		/// <summary>
+		/// Subscribe to this event for post-processing of the <see cref="IncomingMessage"/>, including adding or modifying headers.
+		/// Throwing an exception post-process will abort message processing.
+		/// </summary>
         public event Action<IncomingMessage> PostProcessIncoming;
+		/// <summary>
+		/// Subscribe to this event for notification when <see cref="IncomingMessage"/> processing raises an exception.
+		/// </summary>
         public event Action<IncomingMessage, Exception> ErrorIncoming;
+		/// <summary>
+		/// Subscribe to this event for pre-processing of the <see cref="OutgoingMessage"/>, including adding or modifying headers.
+		/// Throwing an exception pre-process will abort message processing.
+		/// </summary>
         public event Action<OutgoingMessage> PreProcessOutgoing;
+		/// <summary>
+		/// Subscribe to this event for post-processing of the <see cref="OutgoingMessage"/>, including adding or modifying headers.
+		/// Throwing an exception post-process will abort message processing.
+		/// </summary>
         public event Action<OutgoingMessage> PostProcessOutgoing;
+		/// <summary>
+		/// Subscribe to this event for notification when <see cref="OutgoingMessage"/> processing raises an exception.
+		/// </summary>
         public event Action<OutgoingMessage, Exception> ErrorOutgoing;
-                
-        /// <summary>
-        /// If the message is encrypted, then treat it as an incoming message
-        /// Else treat it as an outgoing message
-        /// You'll need to cast MessageEnvelope to IncomingMessage/OutgoingMessage
-        /// </summary>
+                		
+		/// <summary>
+		/// Generic message processing, autodetecting if message is incoming or outgoing
+		/// </summary>
+		/// <param name="messageText">
+		/// RFC 5322 formatted message string to process
+		/// </param>
+		/// <param name="isIncoming">
+		/// Reference boolean, will be set <c>true</c> if the message was detected as incoming,
+		/// <c>false</c> if the message was detected as outgoing.
+		/// </param>
+		/// <returns>
+		/// A <see cref="MessageEnvelope"/> instance; may be cast to <see cref="IncomingMessage"/> or
+		/// <see cref="OutgoingMessage"/> based on the value of <c>isIncoming</c>.
+		/// </returns>
         public MessageEnvelope Process(string messageText, ref bool isIncoming)
         {
             return this.Process(new MessageEnvelope(messageText), ref isIncoming);
@@ -408,13 +494,6 @@ namespace NHINDirect.Agent
 
         void BindAddresses(IncomingMessage message)
         {
-            if (m_fetchIncomingSenderCerts)
-            {
-                //
-                // Retrieving the sender's certificate is optional
-                //
-                message.Sender.Certificates = this.ResolvePublicCerts(message.Sender, false);
-            }
             //
             // Bind each recpient's certs and trust settings
             //
