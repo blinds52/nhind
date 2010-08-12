@@ -29,12 +29,12 @@ namespace NHINDirect.Certificates
     {
         IX509CertificateIndex m_certIndex;
         
-		/// <summary>
-		/// Creates a certificate resolver from a certificate index instance. 
-		/// </summary>
-		/// <param name="index">
-		/// An index instance providing <see cref="IX509CertificateIndex"/>
-		/// </param>
+	/// <summary>
+	/// Creates a certificate resolver from a certificate index instance. 
+	/// </summary>
+	/// <param name="index">
+	/// An index instance providing <see cref="IX509CertificateIndex"/>
+	/// </param>
         public CertificateResolver(IX509CertificateIndex index)
         {
             if (index == null)
@@ -81,9 +81,5 @@ namespace NHINDirect.Certificates
             return matches;            
         }
         
-        public static bool IsNullOrEmpty(X509Certificate2Collection certs)
-        {
-            return (certs == null || certs.Count == 0);
-        }
     }
 }
