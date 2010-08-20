@@ -91,10 +91,9 @@ namespace NHINDirect.Agent
             {
                 throw new ArgumentNullException();
             }
-            //
-            // if there are no anchors ... then they haven't configured anything so we should always fail
-            //
-            if (anchors == null)
+
+            // if there are no anchors we should always fail
+            if (anchors.IsNullOrEmpty())
             {
                 return false;
             }
@@ -105,42 +104,32 @@ namespace NHINDirect.Agent
             
             try
             {
-                //
                 // We're using the system class as a helper to merely build the chain
                 // However, we will review each item in the chain ourselves, because we have our own rules...
-                //
                 chainBuilder.Build(certificate);
-                //
-                // If we don't have a trust chain, then we obviously have a problem...
-                //
                 X509ChainElementCollection chainElements = chainBuilder.ChainElements;
-                if (chainElements == null || chainElements.Count < 1)
+
+                // If we don't have a trust chain, then we obviously have a problem...
+                if (chainElements.IsNullOrEmpty())
                 {
                     return false;
                 }
-                //
+
                 // walk the chain starting at the leaf and see if we hit any issues before the anchor
-                //
-                for (int i = 0; i < chainElements.Count; ++i)
-                {
-                    X509ChainElement chainElement = chainBuilder.ChainElements[i];
-                
+                foreach (X509ChainElement chainElement in chainElements)
+                {                
                     if (this.ChainElementHasProblems(chainElement))
                     {
-                        //
                         // Whoops... problem with at least one cert in the chain. Stop immediately
-                        //
                         return false;
                     }
 
                     bool isAnchor = (anchors.FindByThumbprint(chainElement.Certificate.Thumbprint) != null);
                     if (isAnchor)
                     {
-                        //
                         // Found a valid anchor!
                         // Because we found an anchor we trust, we can now trust the entire trust chain
-                        //
-                        return (true);
+                        return true;
                     }
                 }
             }
@@ -154,27 +143,17 @@ namespace NHINDirect.Agent
                 
         bool ChainElementHasProblems(X509ChainElement chainElement)
         {
-            //
             // If the builder finds problems with the cert, it will provide a list of "status" flags for the cert
-            // If the list is empty or the list is null, then there were NO problems with the cert
-            //
             X509ChainStatus[] chainElementStatus = chainElement.ChainElementStatus;
-            if (chainElementStatus == null)
+
+            // If the list is empty or the list is null, then there were NO problems with the cert
+            if (chainElementStatus.IsNullOrEmpty())
             {
                 return false;
             }
 
-            for (int i = 0; i < chainElementStatus.Length; ++i)
-            {
-                X509ChainStatus status = chainElementStatus[i];
-
-                if ((status.Status & m_problemFlags) != 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            // Return true if there are any status flags we care about
+            return chainElementStatus.Any(s => (s.Status & m_problemFlags) != 0);
         }
     }
 }
