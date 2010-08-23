@@ -136,10 +136,14 @@ namespace NHINDirect.Agent
         
 
         /// <summary>
-        /// Returns <c>true</c> if the trust status for this address meets minimal trust, <c>false</c> if not
+        /// An arbitrary Tag that an integrator may associate with this address during pre/post processing of messages. 
         /// </summary>
-        /// <param name="minTrustStatus">The <see cref="TrustEnforcementStatus"/> treated as minimally trustworthy</param>
-        /// <returns><c>true</c> if trusted, <c>false</c> if not</returns>
+        public object Tag
+        {
+            get;
+            set;
+        }
+        
         public bool IsTrusted(TrustEnforcementStatus minTrustStatus)
         {
             return (this.m_trustStatus >= minTrustStatus);

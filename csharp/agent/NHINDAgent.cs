@@ -503,7 +503,7 @@ namespace NHINDirect.Agent
                 throw new AgentException(AgentError.UntrustedSender);
             }
 
-            message.CategorizeRecipientsByDomain(m_managedDomains);
+            message.EnsureRecipientsCategorizedByDomain(m_managedDomains);
             //
             // Map each address to its certificates/trust settings
             //
@@ -746,7 +746,7 @@ namespace NHINDirect.Agent
             //
             // Categorize recipients as local/external
             //
-            message.CategorizeRecipientsByDomain(m_managedDomains);
+            message.EnsureRecipientsCategorizedByDomain(m_managedDomains);
             //
             // Bind addresses to Certs etc
             //
@@ -771,10 +771,6 @@ namespace NHINDirect.Agent
             // Finally, sign and encrypt the message
             //
             this.SignAndEncryptMessage(message);
-            //
-            // Not all recipients may be trusted. Remove them from Routing headers
-            //
-            message.UpdateRoutingHeaders();
         }
 
         void BindAddresses(OutgoingMessage message)
