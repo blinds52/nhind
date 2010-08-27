@@ -8,63 +8,45 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace AdminUI {
+namespace AdminUI.Logic.Views {
     
     
-    public partial class DomainsPage {
+    public partial class NewDomainControl {
         
         /// <summary>
-        /// DomainsMultiView control.
+        /// DomainNameTextBox control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.MultiView DomainsMultiView;
+        protected global::System.Web.UI.WebControls.TextBox DomainNameTextBox;
         
         /// <summary>
-        /// MasterView control.
+        /// RequiredFieldValidator1 control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.View MasterView;
+        protected global::System.Web.UI.WebControls.RequiredFieldValidator RequiredFieldValidator1;
         
         /// <summary>
-        /// DomainListControl1 control.
+        /// Add control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::AdminUI.Logic.Views.DomainListControl DomainListControl1;
+        protected global::System.Web.UI.WebControls.LinkButton Add;
         
         /// <summary>
-        /// NewDomainControl1 control.
+        /// ErrorLiteral control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::AdminUI.Logic.Views.NewDomainControl NewDomainControl1;
-        
-        /// <summary>
-        /// DetailsView control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.View DetailsView;
-        
-        /// <summary>
-        /// DomainDetailsControl1 control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::AdminUI.Logic.Views.DomainDetailsControl DomainDetailsControl1;
+        protected global::System.Web.UI.WebControls.Literal ErrorLiteral;
     }
 }
