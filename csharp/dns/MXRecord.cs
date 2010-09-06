@@ -52,10 +52,18 @@ namespace DnsResolver
         {
         }
         
-        /// <summary>
-        /// Gets and sets the preference value.
-        /// </summary>
-        /// <value>A 16-bit integer, where lower values are higher precedence</value>
+        public MXRecord(string name, string exchange)
+            : this(name, exchange, 10)
+        {
+        }
+        
+        public MXRecord(string name, string exchange, short preference)
+            : base(name, Dns.RecordType.MX)
+        {
+            this.Preference = preference;
+            this.Exchange = exchange;
+        }
+        
         public short Preference
         {
             get;
@@ -83,14 +91,35 @@ namespace DnsResolver
             }
         }
 
-        /// <summary>
-        /// Reads values into this instance from the reader
-        /// </summary>
-        /// <param name="reader">A reader which has a buffer already filled with raw data for the RDATA.</param>
+        public override bool Equals(DnsResourceRecord record)
+        {
+            if (!base.Equals(record))
+            {
+                return false;
+            }
+            
+            MXRecord mxRecord = record as MXRecord;
+            if (mxRecord == null)
+            {
+                return false;
+            }
+            
+            return (
+                    Dns.Equals(m_exchange, mxRecord.m_exchange)
+                &&  this.Preference == mxRecord.Preference
+            );
+        }
+        
+        protected override void SerializeRecordData(DnsBuffer buffer)
+        {
+            buffer.AddShort(this.Preference);
+            buffer.AddDomainName(m_exchange);
+        }
+        
         protected override void DeserializeRecordData(ref DnsBufferReader reader)
         {
-            Preference = reader.ReadShort();
-            Exchange = reader.ReadString();
+            this.Preference = reader.ReadShort();
+            this.Exchange = reader.ReadDomainName();
         }
     }
 }

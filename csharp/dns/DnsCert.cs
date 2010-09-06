@@ -164,6 +164,15 @@ namespace DnsResolver
         }
         
         /// <summary>
+        /// Return a byte array containing the certificate exported as .DER (.CER) 
+        /// </summary>
+        /// <returns></returns>
+        public byte[] GetData()
+        {
+            return m_cert.Export(X509ContentType.Cert);
+        }
+        
+        /// <summary>
         /// Exports this record as a DNS CERT RR.
         /// </summary>
         /// <param name="dnsDomain">The domain name to use for the address.</param>

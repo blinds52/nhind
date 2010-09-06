@@ -31,9 +31,23 @@ namespace DnsResolver
         internal RawRecord()
         {
         }
-
+        
         /// <summary>
         /// Gets and sets the raw data for this RR
+        /// Not all DNS Record are mapped to a custom object by this library. 
+        /// Dns Records not specifically parsed are turned into RawRecord objects
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="type"></param>
+        /// <param name="record"></param>
+        public RawRecord(string name, Dns.RecordType type, byte[] record)
+            : base(name, type)
+        {
+            this.RecordBytes = record;
+        }
+        
+        /// <summary>
+        /// The raw data for this resource record
         /// </summary>
         public byte[] RecordBytes
         {
@@ -51,11 +65,54 @@ namespace DnsResolver
                 m_bytes = value;
             }
         }
-
+        
         /// <summary>
-        /// Reads values into this instance from the reader
+        /// Compares a Raw Record to this given resource record
         /// </summary>
-        /// <param name="reader">A reader which has a buffer already filled with raw data for this RR.</param>
+        /// <param name="record"></param>
+        /// <returns></returns>
+        public override bool Equals(DnsResourceRecord record)
+        {
+            if (!base.Equals(record))
+            {
+                return false;
+            }
+
+            RawRecord rawRecord = record as RawRecord;
+            if (rawRecord == null)
+            {
+                return false;
+            }
+            
+            if (rawRecord.m_bytes.Length != m_bytes.Length)
+            {
+                return false;
+            }
+            
+            for (int i = 0; i < m_bytes.Length; ++i)
+            {
+                if (m_bytes[i] != rawRecord.m_bytes[i])               
+                {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Serializes the raw record
+        /// </summary>
+        /// <param name="buffer"></param>
+        protected override void SerializeRecordData(DnsBuffer buffer)
+        {
+            buffer.AddBytes(m_bytes);
+        }
+        
+        /// <summary>
+        /// Deserializes this raw record 
+        /// </summary>
+        /// <param name="reader"></param>
         protected override void DeserializeRecordData(ref DnsBufferReader reader)
         {
             this.RecordBytes = reader.ReadBytes(this.RecordDataLength);

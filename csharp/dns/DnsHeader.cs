@@ -63,7 +63,7 @@ namespace DnsResolver
         /// <summary>
         /// Initializes an empty DNS header
         /// </summary>
-        public DnsHeader()
+        internal DnsHeader()
         {
         }
         
@@ -73,9 +73,9 @@ namespace DnsResolver
         /// <param name="reader">The reader containing raw data for the header.</param>
         internal DnsHeader(ref DnsBufferReader reader)
         {
-            this.Parse(ref reader);
+            this.Deserialize(ref reader);
         }
-                
+
         /// <summary>
         /// The unique ID for this header
         /// </summary>
@@ -88,28 +88,28 @@ namespace DnsResolver
         /// to match up replies to outstanding queries.
         /// </para>
         /// </remarks>
-        public ushort UniqueID; // ID
+        public ushort UniqueID {get;set;}
         /// <summary>
         /// The QR field expressed as a <see cref="bool"/>
         /// </summary>
         /// <remarks>RFC 1035, Section 4.1.1, QR, specifies if this is a request (<c>true</c>) or response
         /// <c>false</c></remarks>
-        public bool IsRequest; // QR
+        public bool IsRequest { get; set; }
         /// <summary>
         /// The OPCODE for this message
         /// </summary>
         /// <remarks>See remarks for <see cref="OpCode"/></remarks>
-        public Dns.OpCode OpCode; // OpCode (4 bits)
+        public Dns.OpCode OpCode {get; set;}
         /// <summary>
         /// The AA field expressed as a <see cref="bool"/>
         /// </summary>
         /// <remarks>RFC 1035, Section 4.1.1, AA</remarks>
-        public bool IsAuthoritativeAnswer; // AA
+        public bool IsAuthoritativeAnswer {get;set;}
         /// <summary>
         /// The TC field expressed as a <see cref="bool"/>
         /// </summary>
         /// <remarks>RFC 1035, Section 4.1.1, TC</remarks>
-        public bool IsTruncated; // TC
+        public bool IsTruncated {get; set;}
         /// <summary>
         /// The RD field expressed as a <see cref="bool"/>
         /// </summary>
@@ -120,7 +120,7 @@ namespace DnsResolver
         /// the name server to pursue the query recursively.
         /// Recursive query support is optional.
         /// </para></remarks>
-        public bool IsRecursionDesired; // RD
+        public bool IsRecursionDesired {get; set;}
         /// <summary>
         /// The RA field expressed as a <see cref="bool"/>
         /// </summary>
@@ -129,13 +129,12 @@ namespace DnsResolver
         /// response, and denotes whether recursive query support is
         /// available in the name server.</para>
         /// </remarks>
-        public bool IsRecursionAvailable; // RA
+        public bool IsRecursionAvailable {get; set;}
         /// <summary>
         /// The RCODE for this header
         /// </summary>
         /// <remarks>See remarks for <see cref="ResponseCode"/></remarks>
-        public Dns.ResponseCode ResponseCode; // RCODE (4 bits)
-
+        public Dns.ResponseCode ResponseCode {get; set;}
         /// <summary>
         /// Gets and sets the number of entries in the question section (QDCOUNT header value)
         /// </summary>
@@ -148,8 +147,10 @@ namespace DnsResolver
             }
             set
             {
-                if (value <= 0)
+                if (value != 1)
                 {
+                    // We currenly only support a single question
+                    // We will generalize this in a subsequent versionf
                     throw new DnsProtocolException(DnsProtocolError.InvalidQuestionCount);
                 }
                 
@@ -220,21 +221,21 @@ namespace DnsResolver
             }
         }
 
-        internal void Parse(ref DnsBufferReader buffer)
+        internal void Deserialize(ref DnsBufferReader buffer)
         {
-            UniqueID = buffer.ReadUShort();
+            this.UniqueID = buffer.ReadUShort();
 
             byte b = buffer.ReadByte();
 
-            IsRequest = ((b & 0x80) == 0);
-            OpCode = (Dns.OpCode)(byte)((b >> 3) & 0x0F);
-            IsAuthoritativeAnswer = ((b & 0x04) != 0);
-            IsTruncated = ((b & 0x02) != 0);
-            IsRecursionDesired = ((b & 0x01) != 0);
+            this.IsRequest = ((b & 0x80) == 0);
+            this.OpCode = (Dns.OpCode)(byte)((b >> 3) & 0x0F);
+            this.IsAuthoritativeAnswer = ((b & 0x04) != 0);
+            this.IsTruncated = ((b & 0x02) != 0);
+            this.IsRecursionDesired = ((b & 0x01) != 0);
 
             b = buffer.ReadByte();
-            IsRecursionAvailable = ((b & 0x80) != 0);
-            ResponseCode = (Dns.ResponseCode)(byte)(b & 0x0F);
+            this.IsRecursionAvailable = ((b & 0x80) != 0);
+            this.ResponseCode = (Dns.ResponseCode) (byte)(b & 0x0F);
 
             this.QuestionCount = buffer.ReadShort();
             this.AnswerCount = buffer.ReadShort();
@@ -242,23 +243,22 @@ namespace DnsResolver
             this.AdditionalAnswerCount = buffer.ReadShort();
         }
 
-        internal void ToBytes(DnsBuffer buffer)
+        internal void Serialize(DnsBuffer buffer)
         {
             buffer.AddUshort(UniqueID);
 
-            buffer.AddByte((byte)((IsRequest ? 0x00 : 0x80) |
+            buffer.AddByte((byte)((this.IsRequest ? 0x00 : 0x80) |
                                  ((byte)OpCode << 3) |
-                                 (IsAuthoritativeAnswer ? 0x04 : 0x00) |
-                                 (IsTruncated ? 0x02 : 0x00) |
-                                 (IsRecursionDesired ? 0x01 : 0x00)));
+                                 (this.IsAuthoritativeAnswer ? 0x04 : 0x00) |
+                                 (this.IsTruncated ? 0x02 : 0x00) |
+                                 (this.IsRecursionDesired ? 0x01 : 0x00)));
 
-            buffer.AddByte((byte)((IsRecursionAvailable ? 0x80 : 0x00) |
-                                 (byte)ResponseCode));
+            buffer.AddByte((byte)((this.IsRecursionAvailable ? 0x80 : 0x00) | (byte) this.ResponseCode));
             
-            buffer.AddShort(QuestionCount);
-            buffer.AddShort(AnswerCount);
-            buffer.AddShort(NameServerAnswerCount);
-            buffer.AddShort(AdditionalAnswerCount);
+            buffer.AddShort(this.QuestionCount);
+            buffer.AddShort(this.AnswerCount);
+            buffer.AddShort(this.NameServerAnswerCount);
+            buffer.AddShort(this.AdditionalAnswerCount);
         }
     }
 }

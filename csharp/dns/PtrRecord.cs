@@ -48,11 +48,13 @@ namespace DnsResolver
         internal PtrRecord()
         {
         }
-
-        /// <summary>
-        /// Gets and sets the domain name (PTRDNAME)
-        /// </summary>
-        /// <value>A <see cref="string"/> representation of the domain name.</value>
+        
+        public PtrRecord(string name, string domain)
+            : base(name, Dns.RecordType.PTR)
+        {
+            this.Domain = domain;
+        }
+        
         public string Domain
         {
             get
@@ -70,13 +72,30 @@ namespace DnsResolver
             }
         }
 
-        /// <summary>
-        /// Reads values into this instance from the reader
-        /// </summary>
-        /// <param name="reader">A reader which has a buffer already filled with raw data for this RR.</param>
+        public override bool Equals(DnsResourceRecord record)
+        {
+            if (!base.Equals(record))
+            {
+                return false;
+            }
+
+            PtrRecord ptrRecord = record as PtrRecord;
+            if (ptrRecord == null)
+            {
+                return false;
+            }
+            
+            return (Dns.Equals(this.m_domain, ptrRecord.m_domain));
+        }
+
+        protected override void SerializeRecordData(DnsBuffer buffer)
+        {
+            buffer.AddDomainName(m_domain);
+        }   
+             
         protected override void DeserializeRecordData(ref DnsBufferReader reader)
         {
-            this.Domain = reader.ReadString();
+            this.Domain = reader.ReadDomainName();
         }
     }
 }

@@ -46,10 +46,12 @@ namespace DnsResolver
         {
         }
         
-        /// <summary>
-        /// Gets and sets the nameserver for the class and domain
-        /// </summary>
-        /// <value>A <see cref="string"/> representation of the nameserver domain</value>
+        public NSRecord(string name, string nameserver)
+            : base(name, Dns.RecordType.NS)
+        {
+            this.NameServer = nameserver;
+        }
+        
         public string NameServer
         {
             get
@@ -67,13 +69,30 @@ namespace DnsResolver
             }
         }
 
-        /// <summary>
-        /// Reads values into this instance from the reader
-        /// </summary>
-        /// <param name="reader">A reader which has a buffer already filled with raw data for this RR.</param>
+        public override bool Equals(DnsResourceRecord record)
+        {
+            if (!base.Equals(record))
+            {
+                return false;
+            }
+            
+            NSRecord nsRecord = record as NSRecord;
+            if (nsRecord == null)
+            {
+                return false;
+            }
+            
+            return (Dns.Equals(m_nameserver, nsRecord.NameServer));
+        }
+        
+        protected override void SerializeRecordData(DnsBuffer buffer)
+        {
+            buffer.AddDomainName(m_nameserver);
+        }
+        
         protected override void DeserializeRecordData(ref DnsBufferReader reader)
         {
-            this.NameServer = reader.ReadString();
+            this.NameServer = reader.ReadDomainName();
         }
     }
 }
