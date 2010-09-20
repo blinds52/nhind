@@ -20,6 +20,7 @@ namespace NHINDirect.SmtpAgent
 
                 IoC.Initialize(new SimpleDependencyResolver())
                     .Register<ILogFactory>(new NLogFactory(settings.LogSettings))
+                    .Register<IAuditor>(new NullAuditor())
                     ;
 
                 Log.For<MessageArrivalEventHandler>().Debug(settings);
