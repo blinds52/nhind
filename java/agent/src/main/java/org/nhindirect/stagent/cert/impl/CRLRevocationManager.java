@@ -1,3 +1,25 @@
+/* 
+Copyright (c) 2010, NHIN Direct Project
+All rights reserved.
+
+Authors:
+   Umesh Madan     umeshma@microsoft.com
+   Greg Meyer      gm2552@cerner.com
+ 
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer 
+in the documentation and/or other materials provided with the distribution.  Neither the name of the The NHIN Direct Project (nhindirect.org). 
+nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, 
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS 
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE 
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF 
+THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 package org.nhindirect.stagent.cert.impl;
 
 import java.io.InputStream;
@@ -8,13 +30,17 @@ import java.security.cert.CRLException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nhindirect.stagent.DefaultNHINDAgent;
+import org.nhindirect.stagent.cert.RevocationManager;
 
 import sun.security.x509.CRLDistributionPointsExtension;
 import sun.security.x509.DistributionPoint;
@@ -31,17 +57,21 @@ import sun.security.x509.X509CertImpl;
  * 
  * @author beau
  */
-public class CRLManager {
+public class CRLRevocationManager implements RevocationManager {
 
     private static final Log LOGGER = LogFactory.getFactory().getInstance(DefaultNHINDAgent.class);
     
-    private String defaultCrlUri;
     private Set<CRL> crlCollection;
     
     private static CertificateFactory certificateFactory;
     
+    // TODO: convert to JCS cache
+    private static Map<String, X509CRLImpl> cache;
+    
     static 
     {
+        cache = new HashMap<String, X509CRLImpl>();
+        
         try 
         {
             certificateFactory = CertificateFactory.getInstance("X.509");
@@ -54,17 +84,8 @@ public class CRLManager {
     /**
      * Default constructor.
      */
-    public CRLManager() 
+    public CRLRevocationManager() 
     { 
-        this(null);
-    }
-
-    /**
-     * Construct a CRLManager using a default CRL.
-     */
-    public CRLManager(String defaultCrlUri) 
-    { 
-        this.defaultCrlUri = defaultCrlUri;
         this.crlCollection = new HashSet<CRL>();
     }
     
@@ -92,20 +113,7 @@ public class CRLManager {
     {
         if (certificate == null)
             return;
-        
-        try 
-        {
-            // Add default CRL
-            X509CRLImpl defaultCrl = getCrlFromUri(defaultCrlUri);
-            if (defaultCrl != null)
-                crlCollection.add(defaultCrl);
-        }
-        catch (Exception e)
-        {
-            if (LOGGER.isWarnEnabled())
-                LOGGER.warn("Unable to handle default CRL: " + e.getMessage());
-        }
-        
+              
         try {
             // Add CRL distribution point(s)
             X509CertImpl certificateImpl = new X509CertImpl(certificate.getEncoded());
@@ -121,7 +129,7 @@ public class CRLManager {
 
                         if (generalNameString.startsWith("URIName: ")) 
                         {
-                            String crlURLString = generalNameString.substring(9);
+                            String crlURLString = getNameString(generalNameString);
                          
                             X509CRLImpl crlImpl = getCrlFromUri(crlURLString);
                             if (crlImpl != null)
@@ -138,14 +146,12 @@ public class CRLManager {
         }
     }
 
-    /**
-     * Determine whether or not a certificate has been revoked.
+    /*
+     * (non-Javadoc)
      * 
-     * @param certificate
-     *            The certificate to inspect.
-     * @return true if the certificate has been revoked, false otherwise.
-     * @throws CRLException
+     * @see org.nhindirect.stagent.cert.RevocationManager#isRevoked(java.security.cert.X509Certificate)
      */
+    @Override
     public boolean isRevoked(X509Certificate certificate)
     {
         loadCRLs(certificate);
@@ -171,30 +177,67 @@ public class CRLManager {
     {
         if (crlUrlString == null || crlUrlString.trim().length() == 0)
             return null;
-        
-        X509CRLImpl crlImpl = null;
-        
-        try {
-            URLConnection urlConnection = new URL(crlUrlString).openConnection();
-            urlConnection.setConnectTimeout(3000);
             
-            InputStream crlInputStream = urlConnection.getInputStream();
+        synchronized(cache) 
+        { 
+            X509CRLImpl crlImpl = getCache().get(crlUrlString);
             
-            try 
+            if (crlImpl != null && crlImpl.getNextUpdate().before(new Date())) 
             {
-                crlImpl = (X509CRLImpl) certificateFactory.generateCRL(crlInputStream);
-            } 
-            finally 
-            {
-                crlInputStream.close();
+                getCache().remove(crlUrlString);
+                crlImpl = null;
             }
+            
+            if (crlImpl == null)
+            {
+                try 
+                {
+                    URLConnection urlConnection = new URL(crlUrlString).openConnection();
+                    urlConnection.setConnectTimeout(3000);
+                    
+                    InputStream crlInputStream = urlConnection.getInputStream();
+                    
+                    try 
+                    {
+                        crlImpl = (X509CRLImpl) certificateFactory.generateCRL(crlInputStream);
+                    } 
+                    finally 
+                    {
+                        crlInputStream.close();
+                    }
+                    
+                    getCache().put(crlUrlString, crlImpl);
+                }
+                catch (Exception e)
+                {
+                    if (LOGGER.isWarnEnabled())
+                        LOGGER.warn("Unable to retrieve or parse CRL " + crlUrlString);
+                }
+            }
+            
+            return crlImpl;
         }
-        catch (Exception e)
-        {
-            if (LOGGER.isWarnEnabled())
-                LOGGER.warn("Unable to retrieve or parse CRL " + crlUrlString);
-        }
-        
-        return crlImpl;
+    }
+    
+    /**
+     * Get the cache object.
+     * 
+     * @return the cache object.
+     */
+    private static Map<String, X509CRLImpl> getCache() 
+    {
+        return cache;
+    }
+    
+    /**
+     * Get the URI from the standardized generalNameString.
+     * 
+     * @param generalNameString
+     *            the general name string.
+     * @return a URI.
+     */
+    protected String getNameString(String generalNameString) 
+    {
+        return generalNameString.substring(9);
     }
 }
