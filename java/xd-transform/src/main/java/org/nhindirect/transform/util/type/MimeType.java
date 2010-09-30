@@ -26,7 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.nhindirect.transform.util.type;
+package org.nhindirect.transform.util;
 
 import org.apache.commons.lang.StringUtils;
 

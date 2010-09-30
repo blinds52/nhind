@@ -28,8 +28,6 @@
 
 package org.nhindirect.transform.util;
 
-import org.nhindirect.transform.util.type.MimeType;
-
 import junit.framework.TestCase;
 
 /**
