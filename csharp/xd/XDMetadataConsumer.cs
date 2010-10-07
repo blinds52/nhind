@@ -20,6 +20,7 @@ using System.Text;
 using System.Xml.Linq;
 
 using NHINDirect.Metadata;
+using System.Globalization;
 
 namespace NHINDirect.Xd
 {
@@ -57,6 +58,14 @@ namespace NHINDirect.Xd
             doc.Class = ConsumeCodedValue(docXEl.Classification(XDMetadataStandard.UUIDs.DocumentClass));
             doc.Comments = docXEl.DescriptionValue();
             doc.Confidentiality = ConsumeCodedValue(docXEl.Classification(XDMetadataStandard.UUIDs.DocumentConfidentiality));
+            doc.CreatedOn = HL7Util.DateTimeFromHL7Value(docXEl.SlotValue(XDMetadataStandard.Slots.CreationTime));
+            doc.EventCodes = docXEl.Classifications(XDMetadataStandard.UUIDs.EventCode).Select(c => ConsumeCodedValue(c));
+            doc.FormatCode = ConsumeCodedValue(docXEl.Classification(XDMetadataStandard.UUIDs.FormatCode));
+            doc.FacilityCode = ConsumeCodedValue(docXEl.Classification(XDMetadataStandard.UUIDs.FacilityCode));
+            doc.Hash = docXEl.SlotValue(XDMetadataStandard.Slots.Hash);
+            doc.LanguageCode = docXEl.SlotValue(XDMetadataStandard.Slots.LanguageCode);
+            doc.LegalAuthenticator = docXEl.SlotValue<Person>(XDMetadataStandard.Slots.LegalAuthenticator, s => Person.FromXCN(s));
+
             return doc;
         }
 
@@ -87,5 +96,7 @@ namespace NHINDirect.Xd
             if (nodeRep == null || codingScheme == null || codeLabel == null) throw new ArgumentException();
             return new CodedValue(nodeRep.Value, codeLabel, codingScheme);
         }
+
+
     }
 }
