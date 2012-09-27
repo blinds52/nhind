@@ -4,7 +4,8 @@
 
  Authors:
     Chris Lomonico  chris.lomonico@surescripts.com
-  
+    Joe Shook       jshook@krytiq.com
+   
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -20,7 +21,7 @@ using Xunit;
 
 namespace Health.Direct.Config.Store.Tests
 {
-    class AddressFacts : ConfigStoreTestBase 
+    public class AddressFacts : ConfigStoreTestBase 
     {
 
 
@@ -268,12 +269,13 @@ namespace Health.Direct.Config.Store.Tests
         public void AddressConstructorTest2()
         {
             Address target = new Address();
+            string dateTimeNow = DateTimeHelper.Now.ToString();
             Assert.Null(target.EmailAddress);
             Assert.Null(target.Type);
             Assert.Equal(0, target.DomainID);
             Assert.Equal(0, target.ID);
-            Assert.Equal(DateTime.MinValue,target.CreateDate);
-            Assert.Equal(DateTime.MinValue, target.UpdateDate);
+            Assert.Equal(dateTimeNow, target.CreateDate.ToString());
+            Assert.Equal(dateTimeNow, target.UpdateDate.ToString());
         }
 
         /// <summary>

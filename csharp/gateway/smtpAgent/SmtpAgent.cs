@@ -4,6 +4,7 @@
 
  Authors:
     Umesh Madan     umeshma@microsoft.com
+    Joe Shook	    jshook@kryptiq.com
   
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -17,6 +18,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Mime;
+using System.ServiceModel;
 using Health.Direct.Agent;
 using Health.Direct.Common.Certificates;
 using Health.Direct.Common.Container;
@@ -24,6 +27,7 @@ using Health.Direct.Common.Cryptography;
 using Health.Direct.Common.Diagnostics;
 using Health.Direct.Common.Extensions;
 using Health.Direct.Common.Mail;
+using Health.Direct.Common.Mail.DSN;
 using Health.Direct.Config.Client;
 using Health.Direct.Config.Client.DomainManager;
 using Health.Direct.Config.Store;
@@ -51,7 +55,9 @@ namespace Health.Direct.SmtpAgent
         AgentDiagnostics m_diagnostics;
         MessageRouter m_router;
         ConfigService m_configService;
+        MonitorService m_monitorService;
         NotificationProducer m_notifications;
+        
                 
         internal SmtpAgent(SmtpAgentSettings settings)
         {
@@ -135,6 +141,7 @@ namespace Health.Direct.SmtpAgent
 
             m_diagnostics = new AgentDiagnostics(this);
             m_configService = new ConfigService(m_settings);
+            m_monitorService = new MonitorService(m_settings);
 
             using (new MethodTracer(Logger))
             {
@@ -246,6 +253,7 @@ namespace Health.Direct.SmtpAgent
             using (new MethodTracer(Logger))
             {
                 m_agent.PreProcessOutgoing += this.OnPreProcessOutgoing;
+                m_agent.PostProcessIncoming += this.OnPostProcessIncoming;
                 m_agent.PreProcessIncoming += this.OnPreProcessIncoming;
                 m_agent.Error += m_diagnostics.OnGeneralError;
                 m_agent.ErrorIncoming += m_diagnostics.OnIncomingError;
@@ -258,6 +266,9 @@ namespace Health.Direct.SmtpAgent
                 m_agent.TrustModel.CertChainValidator.Untrusted += m_diagnostics.OnUntrustedCertificate;
             }
         }
+
+        
+
         
         void SubscribeToResolverEvents(ICertificateResolver resolver)
         {
@@ -334,12 +345,38 @@ namespace Health.Direct.SmtpAgent
                 //
                 this.PostProcessMessage(message, envelope);
             }
+            catch (FaultException<ConfigStoreFault> ex)
+            {
+                //
+                // Absorb Mdn type errors
+                //
+                if(IsMdnFault(ex))
+                {
+                    Logger.Info("Ignored MDN: {0}", ex.ToString());
+                }
+                else
+                {
+                    this.RejectMessage(message, isIncoming);
+                    Logger.Error("While processing message {0}", ex.ToString());
+                    throw;
+                }
+            }
             catch (Exception ex)
             {
                 this.RejectMessage(message, isIncoming);
                 Logger.Error("While processing message {0}", ex.ToString());
                 throw;
             }
+        }
+
+        private static bool IsMdnFault(FaultException<ConfigStoreFault> fe)
+        {
+            return fe.Detail.Error == ConfigStoreError.MdnPreviouslyProcessed 
+                   || fe.Detail.Error == ConfigStoreError.MdnPreviouslyFailed
+                   || fe.Detail.Error == ConfigStoreError.MdnUncorrelated 
+                   || fe.Detail.Error == ConfigStoreError.DuplicateDispatchedMdn
+                   || fe.Detail.Error == ConfigStoreError.DuplicateProcessedMdn
+                   || fe.Detail.Error == ConfigStoreError.DuplicateFailedMdn;
         }
 
         protected virtual void PreProcessMessage(ISmtpMessage message)
@@ -418,21 +455,35 @@ namespace Health.Direct.SmtpAgent
 
         void OnPreProcessOutgoing(OutgoingMessage message)
         {
-            if (!m_settings.HasAddressManager)
+            if (m_settings.HasAddressManager)
             {
-                return;
+                VerifySenderAddress(message);
             }
-            //
-            // Verify that the sender is allowed to send
-            //
+        }
+
+        //
+        // Verify that the sender is allowed to send
+        //
+        private void VerifySenderAddress(OutgoingMessage message)
+        {
             Address address = m_configService.GetAddress(message.Sender);
             if (address == null)
             {
                 throw new AgentException(AgentError.UntrustedSender);
             }
-            
+
             message.Sender.Tag = address;
         }
+
+        void MonitorMdn(OutgoingMessage outgoingMessage)
+        {
+            bool isMdnSet = outgoingMessage.IsMdn.GetValueOrDefault(false);
+            if (m_settings.HasMdnManager && !isMdnSet)
+            {
+                m_monitorService.StartMdn(outgoingMessage);
+            }
+        }
+
         
         public MessageEnvelope ProcessOutgoing(ISmtpMessage message)
         {
@@ -447,19 +498,30 @@ namespace Health.Direct.SmtpAgent
         protected virtual MessageEnvelope ProcessOutgoing(ISmtpMessage message, MessageEnvelope envelope)
         {
             OutgoingMessage outgoing = new OutgoingMessage(envelope);
+            
             if (envelope.Message.IsMDN())
             {
+                outgoing.IsMdn = true;
                 outgoing.UseIncomingTrustAnchors = this.Settings.Notifications.UseIncomingTrustAnchorsToSend;
             }
             
+            if (envelope.Message.IsTimelyAndReliable())
+            {
+                outgoing.IsTimelyAndReliable = true;
+            }
+
             envelope = this.SecurityAgent.ProcessOutgoing(outgoing);
-            Logger.Debug("ProcessedOutgoing");
+            Logger.Debug("ProcessedOutgoing"); 
             return envelope;
         }
 
         void PostProcessOutgoing(ISmtpMessage message, OutgoingMessage envelope)
         {
-            this.RelayInternal(message, envelope);
+            MonitorMdn(envelope);
+
+            SendDeliveryStatus(envelope);
+
+            this.RelayInternal(message, envelope); //Removes recipients in local domains
             
             if (envelope.HasRecipients)
             {            
@@ -474,6 +536,34 @@ namespace Health.Direct.SmtpAgent
             else
             {
                 message.Abort();
+            }
+        }
+
+
+        void SendDeliveryStatus(OutgoingMessage envelope)
+        {
+            if (!m_settings.InternalMessage.HasPickupFolder)
+            {
+                return;
+            }
+            //
+            // Its ok if we fail on sending notifications - that should never cause us to not
+            // deliver the message
+            //
+            try
+            {
+                bool isMdnSet = envelope.IsMdn.GetValueOrDefault(false);
+                if (isMdnSet || !envelope.HasRejectedRecipients)
+                {
+                    return;
+                }
+
+                m_notifications.Send(envelope, m_settings.InternalMessage.PickupFolder, envelope.RejectedRecipients
+                    , DSNStandard.DSNAction.Failed, DSNStandard.DSNStatus.Permanent, DSNStandard.DSNStatus.UNDEFINED_STATUS);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("While sending DSN {0}", ex.ToString());
             }
         }
 
@@ -568,7 +658,15 @@ namespace Health.Direct.SmtpAgent
                 }
             }
         }
-        
+
+        private void OnPostProcessIncoming(IncomingMessage message)
+        {
+            if (m_settings.HasMdnManager && message.Message.IsMDN())
+            {
+                m_monitorService.UpdateMdn(message);
+            }
+        }
+
         public MessageEnvelope ProcessIncoming(ISmtpMessage message)
         {
             if (message == null)
@@ -634,7 +732,15 @@ namespace Health.Direct.SmtpAgent
             //
             try
             {
-                m_notifications.Send(envelope, m_settings.InternalMessage.PickupFolder, senders);
+                if(envelope.Message.IsMDN())
+                {
+                    return;
+                }
+                m_notifications.Send(envelope, m_settings.InternalMessage.PickupFolder, senders, MDNStandard.NotificationType.Processed);
+                if(m_settings.Notifications.GatewayIsDestination)
+                {
+                    m_notifications.Send(envelope, m_settings.InternalMessage.PickupFolder, senders, MDNStandard.NotificationType.Dispatched);
+                }
             }
             catch (Exception ex)
             {

@@ -52,8 +52,8 @@
       <xs:enumeration value="InvalidTextBlobName" />
       <xs:enumeration value="InvalidTextBlobNameLength" />
       <xs:enumeration value="InvalidBlob" />
-      <xs:enumeration value="GroupNameLength" />
-      <xs:enumeration value="InvalidGroupName" />
+      <xs:enumeration value="AgentNameLength" />
+      <xs:enumeration value="InvalidAgentName" />
     </xs:restriction>
   </xs:simpleType>
   <xs:element name="ConfigStoreError" nillable="true" type="tns:ConfigStoreError" />

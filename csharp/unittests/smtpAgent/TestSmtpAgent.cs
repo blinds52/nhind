@@ -4,7 +4,8 @@
 
  Authors:
     Umesh Madan     umeshma@microsoft.com
-  
+    Joe Shook	    jshook@kryptiq.com
+   
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -14,9 +15,17 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  
 */
 
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Health.Direct.Agent;
 using Health.Direct.Agent.Tests;
-
+using Health.Direct.Common.Mail;
+using Health.Direct.Common.Mail.Notifications;
+using Health.Direct.Common.Mime;
+using Health.Direct.Config.Client;
+using Health.Direct.Config.Store;
 using Xunit;
 
 namespace Health.Direct.SmtpAgent.Tests
@@ -25,18 +34,19 @@ namespace Health.Direct.SmtpAgent.Tests
     {
         SmtpAgent m_agent;
         
+
         static TestSmtpAgent()
         {
             AgentTester.EnsureStandardMachineStores();        
         }
-        
+
         public TestSmtpAgent()
         {
-            //m_agent = SmtpAgentFactory.Create(base.GetSettingsPath("TestSmtpAgentConfigService.xml"));
+            m_agent = SmtpAgentFactory.Create(base.GetSettingsPath("TestSmtpAgentConfigService.xml"));
             //m_agent = SmtpAgentFactory.Create(base.GetSettingsPath("TestSmtpAgentConfigServiceProd.xml"));
-            m_agent = SmtpAgentFactory.Create(base.GetSettingsPath("TestSmtpAgentConfig.xml"));
+            //m_agent = SmtpAgentFactory.Create(base.GetSettingsPath("TestSmtpAgentConfig.xml"));
         }
-        
+
         [Fact]
         public void Test()
         {
@@ -47,6 +57,7 @@ namespace Health.Direct.SmtpAgent.Tests
         [Fact]
         public void TestEndToEnd()
         {
+            CleanMessages(m_agent.Settings);
             m_agent.Settings.InternalMessage.EnableRelay = true;
             Assert.DoesNotThrow(() => RunEndToEndTest(this.LoadMessage(TestMessage)));
                         
@@ -63,11 +74,14 @@ namespace Health.Direct.SmtpAgent.Tests
             m_agent.Settings.InternalMessage.EnableRelay = false;
         }
 
-        [Fact(Skip="Need Config Service to run this")]
+        
+        [Fact]//(Skip="Need Config Service to run this")]
         //[Fact]
         public void TestEndToEndBad()
         {
+            m_agent.Settings.InternalMessage.EnableRelay = true;
             Assert.Throws<AgentException>(() => RunEndToEndTest(this.LoadMessage(UnknownUsersMessage)));
+            m_agent.Settings.InternalMessage.EnableRelay = false;
         }
         
         [Fact]
@@ -76,8 +90,8 @@ namespace Health.Direct.SmtpAgent.Tests
             m_agent.Settings.InternalMessage.EnableRelay = true;
             Assert.DoesNotThrow(() => RunEndToEndTest(this.LoadMessage(CrossDomainMessage)));            
         }
-                
-        void RunEndToEndTest(CDO.Message message)
+
+        CDO.Message RunEndToEndTest(CDO.Message message)
         {
             m_agent.ProcessMessage(message);            
             message = this.LoadMessage(message);
@@ -94,7 +108,10 @@ namespace Health.Direct.SmtpAgent.Tests
             {
                 base.VerifyOutgoingMessage(message);
             }
+            return message;
         }
+               
+       
 
         [Fact]
         public void TestUntrusted()
@@ -146,8 +163,8 @@ Yo. Wassup?";
         }
         
         public const string InternalRelayMessage =
-        @"To: toby@nhind.hsgincubator.com
-From: toby@nhind.hsgincubator.com
+        @"To: toby@redmond.hsgincubator.com
+From: toby@redmond.hsgincubator.com
 MIME-Version: 1.0
 Subject: Simple Text Message
 Date: Mon, 10 May 2010 14:53:27 -0700

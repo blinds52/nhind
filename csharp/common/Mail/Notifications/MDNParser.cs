@@ -4,7 +4,8 @@
 
  Authors:
     Umesh Madan     umeshma@microsoft.com
-  
+    Joe Shook	    jshook@kryptiq.com
+
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -197,6 +198,7 @@ namespace Health.Direct.Common.Mail.Notifications
         
         /// <summary>
         /// Parse RFC 3798, Disposition types, 3.2.6.2, includes type (processed) mentioned in document but
+        /// (failed) added per Implementation Guide for Delivery Notification in Direct
         /// </summary>
         /// <param name="value">input text</param>
         /// <returns><see cref="MDNStandard.NotificationType"/> value</returns>
@@ -211,7 +213,12 @@ namespace Health.Direct.Common.Mail.Notifications
             {
                 return MDNStandard.NotificationType.Processed;
             }
-            
+
+            if (MDNStandard.Equals(value, MDNStandard.Disposition_Dispatched))
+            {
+                return MDNStandard.NotificationType.Dispatched;
+            }
+
             if (MDNStandard.Equals(value, MDNStandard.Disposition_Displayed))
             {
                 return MDNStandard.NotificationType.Displayed;
@@ -220,6 +227,21 @@ namespace Health.Direct.Common.Mail.Notifications
             if (MDNStandard.Equals(value, MDNStandard.Disposition_Deleted))
             {
                 return MDNStandard.NotificationType.Deleted;
+            }
+
+            if (MDNStandard.Equals(value, MDNStandard.Disposition_Denied))
+            {
+                return MDNStandard.NotificationType.Denied;
+            }
+
+            if (MDNStandard.Equals(value, MDNStandard.Disposition_Error))
+            {
+                return MDNStandard.NotificationType.Error;
+            }
+
+            if (MDNStandard.Equals(value, MDNStandard.Disposition_Failed))
+            {
+                return MDNStandard.NotificationType.Failed;
             }
 
             throw new MDNException(MDNError.InvalidNotificationType);

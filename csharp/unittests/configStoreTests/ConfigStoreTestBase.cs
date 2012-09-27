@@ -4,7 +4,8 @@
 
  Authors:
     Chris Lomonico  chris.lomonico@surescripts.com
-  
+    Joe Shook	    jshook@kryptiq.com
+ 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -17,7 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-
+using Health.Direct.Common.Certificates;
 using Health.Direct.Common.DnsResolver;
 
 using Xunit;
@@ -348,7 +349,108 @@ namespace Health.Direct.Config.Store.Tests
                 
             }
         }
-        
+
+        /// <summary>
+        /// Gets test Mdn records      
+        /// </summary>
+        /// <remarks>
+        /// Initialized Mdns in new status, processed status and dispatched status.
+        /// </remarks>
+        protected static IEnumerable<Mdn> TestMdns
+        {
+            get
+            {
+                string messageId = "945cc145-431c-4119-a8c6-7f557e52fd7d";
+
+                yield return
+                    BuildMdn(messageId, "Name1@nhind.hsgincubator.com", "Name1@domain1.test.com", null, null);
+
+                // Processed expired dispatch not requested
+                for (int i = 1; i <= MAXDOMAINCOUNT; i++)
+                {
+                    yield return
+                        BuildMdn(Guid.NewGuid().ToString()
+                        , string.Format("Name{0}@nhind.hsgincubator.com", i)
+                        , "ProcessExpired@domain1.test.com"
+                        , "To dispatch or not dispatch"
+                        , null
+                        , false
+                        , null
+                        , DateTimeHelper.Now.AddMinutes(-10));
+                }
+
+                // Processed expired dispatch requested
+                for (int i = 1; i <= MAXDOMAINCOUNT; i++)
+                {
+                    yield return
+                        BuildMdn(Guid.NewGuid().ToString()
+                        , string.Format("Name{0}@nhind.hsgincubator.com", i)
+                        , "ProcessExpired@domain1.test.com"
+                        , "To dispatch or not dispatch"
+                        , null
+                        , true
+                        , null
+                        , DateTimeHelper.Now.AddMinutes(-10));
+                }
+
+                // Processed but no dispatch requested
+                for (int i = 1; i <= MAXDOMAINCOUNT; i++)
+                {
+                        yield return
+                        BuildMdn(Guid.NewGuid().ToString()
+                        , string.Format("Name{0}@nhind.hsgincubator.com", i)
+                        , "ProcessExpired@domain2.test.com"
+                        , "To dispatch or not dispatch"
+                        , MdnStatus.Processed
+                        , false
+                        , DateTimeHelper.Now.AddMinutes(-10)    //Processed 10 minutes ago
+                        , DateTimeHelper.Now.AddMinutes(-20));  //Original message 20 minute ago
+                }
+
+                // Processed and dispatch requested, 
+                for (int i = 1; i <= MAXDOMAINCOUNT; i++)
+                {
+                    yield return
+                    BuildMdn(Guid.NewGuid().ToString()
+                    , string.Format("Name{0}@nhind.hsgincubator.com", i)
+                    , "ProcessExpired@domain2.test.com"
+                    , "To dispatch or not dispatch"
+                    , MdnStatus.Processed
+                    , true
+                    , DateTimeHelper.Now.AddMinutes(-10)    //Processed 10 minutes ago
+                    , DateTimeHelper.Now.AddMinutes(-20));  //Original message 20 minute ago
+                }
+            }
+        }
+
+        protected static Mdn BuildMdn(string messageId, string sender, string receiver, string subject, string status)
+        {
+            return new Mdn()
+                       {
+                           MessageId = messageId,
+                           Recipient = receiver,
+                           Sender = sender,
+                           SubjectValue = subject,
+                           Status = status
+                       };
+        }
+
+        protected static Mdn BuildMdn(string messageId, string sender, string receiver, string subject, string status, bool notifyDispatched, DateTime? processedDate, DateTime createdDate)
+        {
+            return new Mdn()
+                       {
+                           MessageId = messageId,
+                           Recipient = receiver,
+                           Sender = sender,
+                           Status = status,
+                           SubjectValue = subject,
+                           NotifyDispatched = notifyDispatched,
+                           MdnProcessedDate = processedDate,
+                           CreateDate = createdDate
+            };
+        }
+
+
         /// <summary>
         /// Simple method to return a list containing all MX domain names
         /// </summary>
@@ -596,6 +698,39 @@ namespace Health.Direct.Config.Store.Tests
 
 
         /// <summary>
+        /// This method will clean, load and verify MDN records in the DB for testing purposes
+        /// </summary>
+        protected void InitMdnRecords()
+        {
+            this.InitMdnRecords(new MdnManager(CreateConfigStore())
+                                    , new ConfigDatabase(ConnectionString));
+        }
+
+        /// <summary>
+        /// This method will clean, load and verify MDN records in the DB for testing purposes
+        /// </summary>
+        /// <param name="mgr">MdnManager instance used for controlling the Mdn records</param>
+        /// <param name="db">ConfigDatabase instance used as the target storage mechanism for the records</param>
+        /// <remarks>
+        /// this approach goes out to db each time it is called, however it ensures that clean records
+        /// are present for every test that is execute, if it is taking too long, simply cut down on the
+        /// number of items using the consts above
+        /// </remarks>
+        protected void InitMdnRecords(MdnManager mgr, ConfigDatabase db)
+        {
+            mgr.RemoveAll();
+            mgr.Start(db, TestMdns.ToArray());
+            
+            //----------------------------------------------------------------------------------------------------
+            //---submit changes to db and verify existence of records
+            db.SubmitChanges();
+            foreach (KeyValuePair<long, KeyValuePair<int, string>> kp in TestAddressNames)
+            {
+                //Assert.NotNull(mgr.Get(kp.Value.Value));
+            }
+        }
+
+        /// <summary>
         ///  Simple method that yeilds a uniform means for setting up an address name
         /// </summary>
         /// <param name="domainID">domain id to be used to build the string</param>
@@ -700,6 +835,14 @@ namespace Health.Direct.Config.Store.Tests
                 //cert.Data = new BinaryReader(fs).ReadBytes((int)new FileInfo(path).Length);
             }
             return cert;
+        }
+
+
+
+        protected static DisposableX509Certificate2 GetDisposableTestCertFromPfx(long domainID, int subId)
+        {
+            var cert = GetCertificateFromTestCertPfx(domainID, subId);
+            return new DisposableX509Certificate2(cert.Data);
         }
 
         /// <summary>
