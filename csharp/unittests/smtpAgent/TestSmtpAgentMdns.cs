@@ -150,6 +150,7 @@ namespace Health.Direct.SmtpAgent.Tests
 
 
             var sendingMessage = LoadMessage(textMessage);
+
             Assert.DoesNotThrow(() => RunEndToEndTest(sendingMessage));
 
             //
@@ -162,7 +163,8 @@ namespace Health.Direct.SmtpAgent.Tests
                 if (messageText.Contains("disposition-notification"))
                 {
                     foundMdns = true;
-                    Assert.DoesNotThrow(() => RunMdnOutBoundProcessingTest(LoadMessage(messageText)));
+                    var cdoMessage = LoadMessage(messageText);
+                    Assert.DoesNotThrow(() => RunMdnOutBoundProcessingTest(cdoMessage));
                 }
             }
             Assert.True(foundMdns);
@@ -183,11 +185,12 @@ namespace Health.Direct.SmtpAgent.Tests
             Assert.True(foundFiles);
 
             //
-            // Prepare a Dispatched MDN and mark 
+            // Prepare a Dispatched MDN manually as if this was a edge client
             //
 
             //
-            // RequestNotification needed to use the CreateNotificationMessages
+            // Original message needed to create RequestNotification which is 
+            // needed to use the CreateNotificationMessages
             //
             var mailMessage = MailParser.ParseMessage(textMessage);
             mailMessage.RequestNotification();
@@ -196,15 +199,18 @@ namespace Health.Direct.SmtpAgent.Tests
             var incoming = new IncomingMessage(textMessage);
 
             List<NotificationMessage> notificationMessages = GetNotificationMessages(incoming, MDNStandard.NotificationType.Dispatched);
-
-            Assert.True(notificationMessages.Count > 0);
+            Assert.True(notificationMessages.Count == 2);
+            
             //
             // Simulating a destination client sending a dispatched MDN
             //
             foreach (var notification in notificationMessages)
             {
+                TestMdnTimelyAndReliableExtensionField(notification, true);
+
                 var dispatchText = MimeSerializer.Default.Serialize(notification);
                 CDO.Message message = LoadMessage(dispatchText);
+                
                 RunEndToEndTest(message);
 
                 var duplicateMessage = LoadMessage(dispatchText);
@@ -235,6 +241,7 @@ namespace Health.Direct.SmtpAgent.Tests
         {
             CleanMessages(m_agent.Settings);
             m_agent.Settings.InternalMessage.EnableRelay = true;
+            m_agent.Settings.Outgoing.EnableRelay = true;
             m_agent.Settings.Notifications.AutoResponse = true;
             m_agent.Settings.Notifications.AlwaysAck = true;
             m_agent.Settings.Notifications.GatewayIsDestination = true;
@@ -270,7 +277,22 @@ namespace Health.Direct.SmtpAgent.Tests
             {
                 string messageText = File.ReadAllText(pickupMessage);
                 CDO.Message message = LoadMessage(messageText);
+                       
                 Assert.DoesNotThrow(() => RunMdnInBoundProcessingTest(message));
+                var envelope = new CDOSmtpMessage(message).GetEnvelope();
+                var mdn = MDNParser.Parse(envelope.Message);
+                if(mdn.Disposition.Notification == MDNStandard.NotificationType.Processed)
+                {
+                    TestMdnTimelyAndReliableExtensionField(mdn, false);
+                }
+                else if(mdn.Disposition.Notification == MDNStandard.NotificationType.Dispatched)
+                {
+                    TestMdnTimelyAndReliableExtensionField(mdn, true);
+                }
+                else
+                {
+                    Assert.True(false, "Unexpected Notification Type: " + mdn.Disposition.Notification);
+                }
             }
 
             //
@@ -326,11 +348,10 @@ namespace Health.Direct.SmtpAgent.Tests
             notificationMessages = GetNotificationMessages(incoming, MDNStandard.NotificationType.Dispatched);
             Assert.True(notificationMessages.Count == 2);
             RunMdnProcessing(notificationMessages);
-
-            Assert.False(true, "Come back to this");
-            //notificationMessages = GetNotificationMessages(incoming, MDNStandard.NotificationType.Failed);
-            //Assert.True(notificationMessages.Count == 2);
-            //RunMdnProcessing(notificationMessages);
+            
+            notificationMessages = GetNotificationMessages(incoming, MDNStandard.NotificationType.Failed);
+            Assert.True(notificationMessages.Count == 2);
+            RunMdnProcessing(notificationMessages);
 
             notificationMessages = GetNotificationMessages(incoming, MDNStandard.NotificationType.Displayed); //No currently using.
             Assert.True(notificationMessages.Count == 2);
@@ -344,9 +365,6 @@ namespace Health.Direct.SmtpAgent.Tests
             m_agent.Settings.InternalMessage.EnableRelay = false;
         }
 
-        //
-        //Test duplicate failed (timeout should change status to failed)
-        //
         
         
         private void RunMdnProcessing(IEnumerable<NotificationMessage> notificationMessages)
@@ -355,20 +373,23 @@ namespace Health.Direct.SmtpAgent.Tests
             {
                 var mdnText = MimeSerializer.Default.Serialize(notification);
                 CDO.Message message = LoadMessage(mdnText);
-                m_agent.ProcessMessage(message);      //Loop back so it is encrypted       
+                m_agent.ProcessMessage(message);  //Loop back so it is encrypted       
                 message = LoadMessage(message);
                 VerifyOutgoingMessage(message);  //Encrypted
                 m_agent.ProcessMessage(message);
-                message = LoadMessage(message);
+                message = LoadMessage(message);  //
                 //This proves we could not process the message because it is still encrypted
                 //Could possibly check to see if it was dropped.  This integration test is getting ugly...
                 VerifyOutgoingMessage(message);         //Encryted Message
 
 
+                //Can't ensure message is deleted in this test because IIS SMTP is not hosting SmtpAgent.
+
+
                 //
                 // assert not in the monitor store.
                 //
-                var queryMdn = BuildQueryMdn(LoadMessage(mdnText));
+                var queryMdn = BuildMdnQueryFromMdn(LoadMessage(mdnText));
                 var mdnManager = CreateConfigStore().Mdns;
                 var mdn = mdnManager.Get(queryMdn.MdnIdentifier);
                 Assert.Null(mdn);
@@ -428,7 +449,7 @@ namespace Health.Direct.SmtpAgent.Tests
 
         static void TestMdnsInProcessedStatus(CDO.Message message, bool timelyAndReliable)
         {
-            var queryMdn = BuildQueryMdn(message);
+            var queryMdn = BuildMdnQueryFromMdn(message);
 
             var mdnManager = CreateConfigStore().Mdns;
             var mdn = mdnManager.Get(queryMdn.MdnIdentifier);
@@ -438,7 +459,23 @@ namespace Health.Direct.SmtpAgent.Tests
             Assert.Equal(timelyAndReliable, mdn.NotifyDispatched);
         }
 
-        
+        static void TestMdnTimelyAndReliableExtensionField(NotificationMessage message, bool exists)
+        {
+            var mdn = MDNParser.Parse(message);
+            TestMdnTimelyAndReliableExtensionField(mdn, exists);
+        }
 
+        static void TestMdnTimelyAndReliableExtensionField(Notification mdn, bool exists)
+        {
+            Console.WriteLine(mdn.Disposition);
+            if(exists)
+            {
+                Assert.NotNull(mdn.SpecialFields[MDNStandard.DispositionOption_TimelyAndReliable]);
+            }
+            else
+            {
+                Assert.True(mdn.SpecialFields == null ||  mdn.SpecialFields[MDNStandard.DispositionOption_TimelyAndReliable] == null);
+            }
+        }
     }
 }
