@@ -60,7 +60,7 @@ public class DomainDaoImpl implements DomainDao {
 
     @Autowired
     private AddressDao addressDao;
-
+    
     private static final Log log = LogFactory.getLog(DomainDaoImpl.class);
 
     /*
@@ -221,10 +221,12 @@ public class DomainDaoImpl implements DomainDao {
             log.debug("Enter");
 
         // delete addresses first if they exist
-        Domain domain = getDomainByName(name);
+        final Domain domain = getDomainByName(name);
         
         if (domain != null)
         {      
+        	disassociateTrustBundlesFromDomain(domain.getId());
+        	
 	        entityManager.remove(domain);
         }
         else 
@@ -246,9 +248,11 @@ public class DomainDaoImpl implements DomainDao {
         if (log.isDebugEnabled())
             log.debug("Enter");
         
-        Domain domain = getDomain(anId);
+        final Domain domain = getDomain(anId);
         if (domain != null) 
         {
+        	disassociateTrustBundlesFromDomain(domain.getId());
+        	
         	entityManager.remove(domain);
         }
         else 
@@ -327,7 +331,8 @@ public class DomainDaoImpl implements DomainDao {
 
         }
         
-        List rs = select.getResultList();
+        @SuppressWarnings("rawtypes")
+		List rs = select.getResultList();
         if ((rs.size() != 0) && (rs.get(0) instanceof Domain)) {
             result = (List<Domain>) rs;
         } else {
@@ -366,7 +371,8 @@ public class DomainDaoImpl implements DomainDao {
             select.setMaxResults(count);
         }
 
-        List rs = select.getResultList();
+        @SuppressWarnings("rawtypes")
+		List rs = select.getResultList();
         if ((rs.size() != 0) && (rs.get(0) instanceof Domain)) {
             result = (List<Domain>) rs;
         }
@@ -471,8 +477,12 @@ public class DomainDaoImpl implements DomainDao {
         addressDao = aDao;
     }
 
-    private AddressDao getAddressDao() {
-        return addressDao;
-    }
-
+	protected void disassociateTrustBundlesFromDomain(long domainId) throws ConfigurationStoreException
+	{
+		final TrustBundleDaoImpl dao = new TrustBundleDaoImpl();
+		dao.setEntityManager(this.entityManager);
+		dao.setDomainDao(this);
+		dao.disassociateTrustBundlesFromDomain(domainId);
+	}
+    
 }

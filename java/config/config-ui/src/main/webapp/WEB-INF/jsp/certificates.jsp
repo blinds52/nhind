@@ -12,7 +12,10 @@
 
     <h2>Manage Certificates</h2>
 	
-		<p style="padding:5px;border:1px solid #bbb;background-color:#fcfccf;"><strong>NOTE:</strong> Please select a DER encoded certificate. Private certificate files should be pkcs12 encoded files with no encryption on both the file and private key stored in the file.</p>
+		<div class="alert info">
+                    <span class="icon"></span>
+                    <strong>NOTE:</strong> Please select a DER encoded certificate. Private certificate files should be pkcs12 encoded files with no encryption on both the file and private key stored in the file.
+                </div>
 	
 <c:choose>
 	<c:when test='${empty action || action == "Add" }'>
@@ -71,8 +74,15 @@
 		action="${fn:escapeXml(formUrlcertificates)}" cssClass="cleanform"
 		method="POST">
 		<form:hidden path="id" />
-		<div id="tablelist" style="width:100%;overflow:auto;">
-			<table  id="certificatesTable" class="data" style="font-size:10px">
+		<div class="box" style="width:auto;margin-bottom:5px;">
+                                <div class="header">
+                                    <h3>Anchors</h3>
+                                </div>
+                                <div class="content no-padding" style="">
+
+                               
+                                    <table id="table-certificates" class="table" style="width:100%;margin-bottom:0;font-size:12px;">
+<thead>
 				<thead>
 					<tr>
 						<th width="10"></th>
@@ -125,6 +135,7 @@
 				</tbody>
 			
 			</table>
+</div>
 		</div>
 		<!-- Wire this up to jQuery to add an input row to the table.
 					                 Don't submit it all until the final submit is done -->
