@@ -21,43 +21,50 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.nhindirect.policy.x509;
 
+import java.security.cert.X509Certificate;
+
+import org.nhindirect.policy.PolicyProcessException;
+import org.nhindirect.policy.PolicyValueFactory;
+
 /**
- * Abstract implementation of the {@link TBSField interface}
+ * Certificate serial number field of TBS section of certificate
+ * <p>
+ * The policy value of this field is returned as a string containing an hexadecimal representation of the certificate serial number.  All alpha based digits are
+ * represented with lower case characters.  Leading 0s and/or spaced are not included in the serial number.
  * @author Greg Meyer
  * @since 1.0
- * @param <P> The object type of the evaluated field of the X509Certiciate.
  */
-public abstract class AbstractTBSField<P> extends AbstractX509Field<P> implements TBSField<P>
-{	
-	static final long serialVersionUID = -5732010856760538062L;	
-	
+public class SerialNumberAttributeField extends AbstractTBSField<String>
+{
+
+	private static final long serialVersionUID = 1358574986560802770L;
+
 	/**
-	 * Constructor
-	 * @param required Indicates if the field is required to be present in the certificate to be compliant with the policy.
+	 * Default constructor
 	 */
-	protected AbstractTBSField(boolean required)
+	public SerialNumberAttributeField()
 	{
-		this.required = required;
+		super(true);
 	}
 	
 	/**
 	 * {@inheritDoc}
 	 */
 	@Override
-	public X509FieldType getX509FieldType()
+	public void injectReferenceValue(X509Certificate value) throws PolicyProcessException 
 	{
-		return X509FieldType.TBS;
+		this.certificate = value;
+				
+		this.policyValue = PolicyValueFactory.getInstance(value.getSerialNumber().toString(16));
+		
 	}
 	
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String toString()
-    {
-    	if (policyValue == null)
-    		return "Unevaluated TBS field: " + getFieldName().toString();
-    	else
-    		return policyValue.toString();
-    }
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public TBSFieldName getFieldName() 
+	{
+		return TBSFieldName.SERIAL_NUMBER;
+	}
 }
