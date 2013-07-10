@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.nhind</groupId>
 	<artifactId>config-service-jar</artifactId>
-	<version>1.5-SNAPSHOT</version>
+	<version>1.6-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>NHIN Direct Java RI config service jar</name>
     <description>NHIN Direct Java RI config service jar.</description>	
@@ -90,14 +90,14 @@
 		<dependency>
 			<groupId>org.nhind</groupId>
 			<artifactId>config-store</artifactId>
-			<version>1.4-SNAPSHOT</version>
+			<version>1.4</version>
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.nhind</groupId>
 			<artifactId>agent</artifactId>
-			<version>1.5.5</version>
+			<version>2.0.1</version>
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>		
@@ -279,9 +279,6 @@
 				<configuration>
 					<charset>UTF-8</charset>
 					<docencoding>UTF-8</docencoding>
-					<docfilessubdirs>true</docfilessubdirs>
-					<detectJavaApiLink>true</detectJavaApiLink>
-					<detectLinks>true</detectLinks>
 					<source>1.6</source>
 					<show>protected</show>
 				</configuration>

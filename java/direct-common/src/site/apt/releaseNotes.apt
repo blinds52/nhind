@@ -6,6 +6,28 @@
         Greg Meyer
         ---
 
+{1.2.1}
+
+    Changes included with release 1.2.1
+    
+    []
+    
+ 	* NA
+    
+    [] 
+     
+    Bug Fixes
+
+    * {{{http://code.google.com/p/nhin-d/issues/detail?id=218}218}}: Fixed build and test issues with JDK 7.
+
+{1.2}
+
+    Changes included with release 1.2
+    
+    []
+    
+ 	* Added common configuration tooling classes.
+
 {1.1.2}
 
     Changes included with release 1.1.2
