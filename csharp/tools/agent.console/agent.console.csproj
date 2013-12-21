@@ -94,7 +94,7 @@
       <Name>smtpAgent</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\ResolverPlugin\resolverPlugins.csproj">
-      <Project>{3b166914-a175-4248-b281-ea16afcfd550}</Project>
+      <Project>{3B166914-A175-4248-B281-EA16AFCFD550}</Project>
       <Name>resolverPlugins</Name>
     </ProjectReference>
     <ProjectReference Include="..\toolutil\config.tools.csproj">
