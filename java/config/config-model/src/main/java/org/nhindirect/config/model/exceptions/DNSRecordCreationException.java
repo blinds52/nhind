@@ -21,6 +21,11 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.nhindirect.config.model.exceptions;
 
+/**
+ * Thrown if errors occurring during the conversions of DNS records to other representations.
+ * @author Greg Meyer
+ * @since 1.0
+ */
 public class DNSRecordCreationException extends RuntimeException 
 {
 

@@ -4,12 +4,27 @@ import org.apache.mina.util.AvailablePortFinder;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.bio.SocketConnector;
 import org.mortbay.jetty.webapp.WebAppContext;
+import org.nhind.config.testbase.TestApplicationContext;
+import org.springframework.context.ApplicationContext;
 
 public class ConfigServiceRunner 
 {
 	private static Server server;
 	private static int HTTPPort;
 	private static String configServiceURL;
+	private static String restAPIBaseURL;
+	
+	static
+	{
+		try
+		{
+			System.setProperty("derby.system.home", "target/data");	
+		}
+		catch (Exception e)
+		{
+			
+		}
+	}	
 	
 	public synchronized static void startConfigService() throws Exception
 	{
@@ -24,12 +39,10 @@ public class ConfigServiceRunner
 			
 			HTTPPort = AvailablePortFinder.getNextAvailable( 1024 );
 			connector.setPort(HTTPPort);
+	
 			
-			WebAppContext context = new WebAppContext();
-		    
-			context.setContextPath("/config");	 
-			context.setServer(server);
-			context.setWar("war/config-service.war");
+			WebAppContext context = new WebAppContext("src/test/resources/webapp", "/");
+
 			    	
 			server.setSendServerVersion(false);
 			server.addConnector(connector);
@@ -37,18 +50,23 @@ public class ConfigServiceRunner
 			
 			server.start();
 			
-			configServiceURL = "http://localhost:" + HTTPPort + "/config/ConfigurationService";
+			configServiceURL = "http://localhost:" + HTTPPort + "/ConfigurationService";
+			restAPIBaseURL = "http://localhost:" + HTTPPort + "/api";
 		
 		}
 	}
 	
+	public synchronized static ApplicationContext getSpringApplicationContext()
+	{
+		return TestApplicationContext.getApplicationContext();
+	}
 
 	public synchronized static boolean isServiceRunning()
 	{
 		return (server != null && server.isRunning());
 	}
 	
-	public synchronized static void shutDownConfigService() throws Exception
+	public synchronized static void shutDownService() throws Exception
 	{
 		if (isServiceRunning())
 		{
@@ -61,5 +79,9 @@ public class ConfigServiceRunner
 	{
 		return configServiceURL;
 	}
-
+	
+	public synchronized static String getRestAPIBaseURL()
+	{
+		return restAPIBaseURL;
+	}	
 }

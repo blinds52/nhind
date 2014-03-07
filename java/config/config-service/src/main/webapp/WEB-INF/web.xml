@@ -22,7 +22,11 @@
 	<listener>
 		<listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
 	</listener>
-
+    <servlet>
+        <servlet-name>ConfigREST</servlet-name>
+        <servlet-class>com.sun.jersey.spi.spring.container.servlet.SpringServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
 	<servlet>
 		<servlet-name>CXFServlet</servlet-name>
 		<servlet-class>org.apache.cxf.transport.servlet.CXFServlet</servlet-class>
@@ -33,4 +37,8 @@
 		<servlet-name>CXFServlet</servlet-name>
 		<url-pattern>/*</url-pattern>
 	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>ConfigREST</servlet-name>
+		<url-pattern>/api/*</url-pattern>
+	</servlet-mapping>		
 </web-app>

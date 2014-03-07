@@ -1964,7 +1964,6 @@ public class WSSmtpAgentConfigFunctional_Test extends AbstractServerTest
             {
             	super.doAssertions(agent);
             	
-            	final X509Certificate digSigCert = TestUtils.loadCertificate("digSigOnly.der", null);
             	final X509Certificate keyEncCert = TestUtils.loadCertificate("keyEncOnly.der", null);
             	
             	final MimeMessage msg = new MimeMessage(null, FileUtils.openInputStream(new File("./src/test/resources/messages/PlainIncomingMessage.txt")));

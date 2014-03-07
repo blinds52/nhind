@@ -24,6 +24,7 @@ public class ConfigServiceCertificateStore_CertBootstrap_Test extends TestCase
 		@Override
 		protected void setupMocks() 
 		{
+			
 			// create the web service and proxy.... not really mocks
 			try
 			{
