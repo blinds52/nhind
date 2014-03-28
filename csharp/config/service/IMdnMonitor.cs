@@ -42,6 +42,8 @@ namespace Health.Direct.Config.Service
         [FaultContract(typeof(ConfigStoreFault))]
         void SweepTimouts(TimeSpan expiredLimit, int bulkCount);
 
-
+        [OperationContract]
+        [FaultContract(typeof(ConfigStoreFault))]
+        Mdn[] EnumerateMdns(string lastMdnName, int maxResults);
     }
 }
