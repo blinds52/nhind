@@ -19,6 +19,7 @@ using System;
 using Health.Direct.Common.Container;
 using Health.Direct.Common.Diagnostics;
 using Health.Direct.Diagnostics.NLog;
+using Health.Direct.SmtpAgent.Config;
 
 namespace Health.Direct.SmtpAgent
 {
@@ -26,6 +27,13 @@ namespace Health.Direct.SmtpAgent
     {
         private static readonly object m_initSync = new object();
         private static bool m_initialized;
+
+        public static SmtpAgent Create(SmtpAgentSettings settings)
+        {
+            InitializeContainer(settings);
+            Log.For<MessageArrivalEventHandler>().Debug(settings);
+            return new SmtpAgent(settings);
+        }
 
         public static SmtpAgent Create(string configFilePath)
         {

@@ -27,13 +27,14 @@ using Health.Direct.Common.Mail.DSN;
 using Health.Direct.Common.Mail.Notifications;
 using Health.Direct.Common.Mime;
 using Health.Direct.Config.Store;
+using Health.Direct.SmtpAgent.Config;
 using Xunit;
 
 namespace Health.Direct.SmtpAgent.Tests
 {
     public class SmtpAgentTester
     {
-        private const string ConnectionString = @"Data Source=.\SQLEXPRESS;Initial Catalog=DirectConfig;Integrated Security=SSPI;";
+        private const string ConnectionString = @"Data Source=(LocalDb)\Projects;Initial Catalog=DirectConfig;Integrated Security=SSPI;";
 
 
         public static string TestMessage =
@@ -121,7 +122,7 @@ Bad message?", Guid.NewGuid());
 
         public static string UnknownUsersMessage =
             string.Format(
-            @"From: <toby@redmond.hsgincubator.com>
+            @"From: <toby@redmond.hsgincubator.bad>
 To: <frank@nhind.hsgincubator.com>, <joe@nhind.hsgincubator.com>
 Subject: Unknown Users Text Message
 Message-ID: {0}
@@ -145,6 +146,7 @@ Yo. Wassup?";
 
         public const string TestPickupFolder = @"c:\inetpub\mailroot\testPickup";
         public const string TestIncomingFolder = @"c:\inetpub\mailroot\incoming";
+        public const string TestBadMessageFolder = @"c:\inetpub\mailroot\badMail";
 
         public SmtpAgentTester(){
             
@@ -157,6 +159,7 @@ Yo. Wassup?";
             CleanMessages(settings.Incoming);
             CleanMessages(settings.Outgoing);
             CleanMessages(settings.RawMessage);
+            CleanMessages(settings.BadMessage);
             settings.IncomingRoutes.ToList().ForEach(
                 route => {
                             if(route as FolderRoute != null)
@@ -205,6 +208,15 @@ Yo. Wassup?";
         public IEnumerable<string> IncomingMessages()
         {
             foreach (var file in Directory.GetFiles(TestIncomingFolder))
+            {
+                yield return file;
+                File.Delete(file);
+            }
+        }
+
+        public IEnumerable<string> BadMessages()
+        {
+            foreach (var file in Directory.GetFiles(TestBadMessageFolder))
             {
                 yield return file;
                 File.Delete(file);

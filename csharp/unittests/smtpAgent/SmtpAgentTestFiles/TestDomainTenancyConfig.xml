@@ -65,7 +65,7 @@
       </ClientSettings>
     </ServiceResolver>
   </Anchors>
-  <RawMessage>
+ <RawMessage>
     <CopyFolder>C:\inetpub\mailroot\Gateway\raw</CopyFolder>
   </RawMessage>
   <BadMessage>
