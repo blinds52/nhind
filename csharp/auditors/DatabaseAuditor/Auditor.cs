@@ -14,20 +14,21 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  
 */
 
+
 using System;
-using Health.Direct.Common.Diagnostics;
 using Health.Direct.SmtpAgent;
 using Health.Direct.SmtpAgent.Diagnostics;
 
 namespace Health.Direct.DatabaseAuditor
 {
-    public class Auditor : IAuditor
+    public class Auditor<T> : IAuditor<IBuildAuditLogMessage> where T : IBuildAuditLogMessage, new ()
     {
-        static AuditorSettings m_settings;
+        readonly AuditorSettings m_settings;
         
-        static Auditor()
+        public Auditor()
         {
             m_settings = AuditorSettings.Load("DatabaseAuditorSettings.xml");
+            BuildAuditLogMessage = new T();
         }
 
         public void Log(string category)
@@ -35,7 +36,7 @@ namespace Health.Direct.DatabaseAuditor
             using (var db = new AuditContext().CreateContext(m_settings))
             {
                 AuditEvent auditEvent = new AuditEvent(category);
-                db.Events.Add(auditEvent);
+                db.AuditEvents.Add(auditEvent);
                 db.SaveChanges();
             }
         }
@@ -46,13 +47,15 @@ namespace Health.Direct.DatabaseAuditor
             using (var db = new AuditContext().CreateContext(m_settings))
             {
                 AuditEvent auditEvent = new AuditEvent(category, message);
-                db.Events.Add(auditEvent);
+                db.AuditEvents.Add(auditEvent);
                 db.SaveChanges();
             }
         }
+
+        public IBuildAuditLogMessage BuildAuditLogMessage { get; private set; }
     }
 
-    public class SimpleBuilder : IBuildAuditLogMessage
+    public class SimpleAuditMessageBuilder : IBuildAuditLogMessage
     {
         /// <summary>
         /// Convert <see cref="ISmtpMessage"/> into a audit string.
@@ -65,7 +68,7 @@ namespace Health.Direct.DatabaseAuditor
         }
     }
 
-    public class FullBuilder : IBuildAuditLogMessage
+    public class HeaderAuditMessageBuilder : IBuildAuditLogMessage
     {
         /// <summary>
         /// Convert <see cref="ISmtpMessage"/> into a audit string.
@@ -74,7 +77,20 @@ namespace Health.Direct.DatabaseAuditor
         /// <returns></returns>
         public string Build(ISmtpMessage message)
         {
-            return message.ToString();
+            return message.GetEnvelope().Message.Headers.ToString();
+        }
+    }
+
+    public class FullAuditMessageBuilder : IBuildAuditLogMessage
+    {
+        /// <summary>
+        /// Convert <see cref="ISmtpMessage"/> into a audit string.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public string Build(ISmtpMessage message)
+        {
+            return message.GetMessageText();
         }
     }
 }

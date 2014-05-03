@@ -56,6 +56,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\agent\agent.csproj">
+      <Project>{BC563499-B6F2-492A-AC91-D2D18E2FCFDD}</Project>
+      <Name>agent</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\common\common.csproj">
       <Project>{87a47bbf-c056-43c8-8c4a-34d25a63d1f9}</Project>
       <Name>common</Name>
@@ -82,6 +86,9 @@
     </PropertyGroup>
     <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>XCOPY /I /Q /R /S /Y "$(TargetDir)*.*" "$(SolutionDir)..\bin\$(ConfigurationName)"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

@@ -5,7 +5,8 @@
  Authors:
     John Theisen
     Umesh Madan
-  
+    Joe Shook   Joseph.Shook@Surescripts.com (Added ResolveAll per service type)
+ * 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -16,17 +17,34 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 */
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Health.Direct.Common.Container
 {
+    /// <summary>
+    /// Registration record
+    /// </summary>
+    public class Registration
+    {
+        /// <summary>
+        /// Service Type
+        /// </summary>
+        public Type Type { get; set; }
+        /// <summary>
+        /// Service implementation.
+        /// </summary>
+        public Func<object> Component { get; set; }
+    }
+
     ///<summary>
     /// SimpleDependencyResolver provides a simple (non-external) container
-    /// so that dependencies can be isolated and other implementors of an
+    /// so that dependencies can be isolated and other implementers of an
     /// agent or gateway can slide in their own container library.
     ///</summary>
     public class SimpleDependencyResolver : IDependencyContainer
     {
-        private readonly Dictionary<Type, Func<object>> m_types;
+        //private readonly Dictionary<Type, Func<object>> m_types;
+        private readonly List<Registration> m_registrations; 
 
         ///<summary>
         /// A simple <see cref="Dictionary{TKey,TValue}"/> based dependency
@@ -35,7 +53,8 @@ namespace Health.Direct.Common.Container
         ///</summary>
         public SimpleDependencyResolver()
         {
-            m_types = new Dictionary<Type, Func<object>>();
+            //m_types = new Dictionary<Type, Func<object>>();
+            m_registrations = new List<Registration>();
         }
         
         /// <summary>
@@ -45,7 +64,8 @@ namespace Health.Direct.Common.Container
         /// <returns>true if registered</returns>
         public bool IsRegistered<T>()
         {
-            return m_types.ContainsKey(typeof(T));
+            //return m_types.ContainsKey(typeof(T));
+            return m_registrations.Any(r => r.Type == typeof (T));
         }
         
         ///<summary>
@@ -55,12 +75,33 @@ namespace Health.Direct.Common.Container
         ///<returns>An instance of type <typeparamref name="T"/></returns>
         public T Resolve<T>()
         {
-            if (!m_types.ContainsKey(typeof(T)))
+            if (m_registrations.All(r => r.Type != typeof (T)))
             {
                 throw new Exception("Could not resolve type in container - " + typeof(T).FullName);
             }
 
-            return (T) m_types[typeof (T)]();
+            //return (T) m_types[typeof (T)]();
+            Registration registration = m_registrations.LastOrDefault(r => r.Type == typeof (T));
+            if (registration == null) return default(T);
+            return (T) registration.Component();
+        }
+
+        ///<summary>
+        /// Given a specific type, return an instance of that type.
+        ///</summary>
+        ///<typeparam name="T">The type to attempt resolution</typeparam>
+        ///<returns>An instance of type <typeparamref name="T"/></returns>
+        public IList<T> ResolveAll<T>()
+        {
+            if (m_registrations.All(r => r.Type != typeof(T)))
+            {
+                throw new Exception("Could not resolve type in container - " + typeof(T).FullName);
+            }
+
+            //return (T) m_types[typeof (T)]();
+            var registrations = m_registrations.Where(r => r.Type == typeof(T)).ToList();
+            if (! registrations.Any()) return default(List<T>);
+            return registrations.Select(r => (T)r.Component()).ToList();
         }
 
         /// <summary>
@@ -94,25 +135,12 @@ namespace Health.Direct.Common.Container
         ///<returns>A newly created container</returns>
         public IDependencyContainer Register(Type serviceType, Func<object> functor)
         {
-            m_types.Add(serviceType, functor);
+            //m_types.Add(serviceType, functor);
+            m_registrations.Add(new Registration{Type = serviceType, Component = functor});
             return this;
         }
 
-        /// <summary>
-        /// UnRegisters a specific instance <paramref name="obj"/> type <typeparamref name="T"/>
-        /// with the container.
-        /// </summary>
-        /// <typeparam name="T">The type to register</typeparam>
-        /// <param name="obj">The specific instance to register</param>
-        /// <returns>An instance of self so the Register calls can be chained.</returns>
-        public IDependencyContainer UnRegister<T>()
-        {
-            m_types.Remove(typeof(T));
-            return this;
-        }
-
-
-
+        
         ///<summary>
         /// Register all of the components found in the <see cref="SimpleContainerSection"/>
         ///</summary>
@@ -175,4 +203,6 @@ namespace Health.Direct.Common.Container
             return () => instance;
         }
     }
+
+    
 }

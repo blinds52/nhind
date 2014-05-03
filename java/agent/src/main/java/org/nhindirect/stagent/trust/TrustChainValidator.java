@@ -299,10 +299,27 @@ public class TrustChainValidator
 		if (issuerCerts.size() == 0)
 			return; // no intermediates.. just return
 		
+		boolean issuerFoundInAnchors = false;
+		Collection<X509Certificate> searchForParentIssuers  = new ArrayList<X509Certificate>();
 		for (X509Certificate issuerCert : issuerCerts)
 		{
 			if (issuerCert.getSubjectX500Principal().equals(issuerPrin) && !isIssuerInCollection(issuers, issuerCert)
 					&& !isIssuerInAnchors(anchors, issuerCert) /* if we hit an anchor then stop */)
+			{
+				searchForParentIssuers.add(issuerCert);
+
+			}
+			else if (isIssuerInAnchors(anchors, issuerCert))
+			{
+				issuerFoundInAnchors = true;
+				break;
+			}
+		}
+		// if the issuer was not found in the list of anchors,
+		// the go up the next level in the chain
+		if (!issuerFoundInAnchors)
+		{
+			for (X509Certificate issuerCert : searchForParentIssuers)
 			{
 				issuers.add(issuerCert);
 				
@@ -344,8 +361,8 @@ public class TrustChainValidator
     				// now pull the certificate from the URL
     				try
     				{
-    					final X509Certificate intermCert = downloadCertFromAIA(url);
-    					retVal.add(intermCert);
+    					final Collection<X509Certificate> intermCerts = downloadCertsFromAIA(url);
+    					retVal.addAll(intermCerts);
     				}
     				catch (NHINDException e)
     				{
@@ -366,8 +383,12 @@ public class TrustChainValidator
     
 	/**
 	 * Downloads a cert from the AIA URL and returns the result as certificate.
-	 * @param bundle The bundle that will be downloaded.
+	 * <br>
+	 * AIA extensions may refer to collection files such as P7b or P7c.  For this reason, this method
+	 * has been deprecated.
+	 * @param url The URL of the certificate that will be downloaded.
 	 * @return The certificate downloaded from the AIA extension URL
+	 * @deprecated As of 2.1, replaced by {@link #downloadCertsFromAIA(String)}
 	 */
 	protected X509Certificate downloadCertFromAIA(String url) throws NHINDException
 	{
@@ -406,6 +427,49 @@ public class TrustChainValidator
 		return retVal;
 	}
     
+	/**
+	 * Downloads certificates from the AIA URL and returns the result as a collection of certificates.
+	 * @param url The URL listed in the AIA extension to locate the certificates.
+	 * @return The certificates downloaded from the AIA extension URL
+	 */
+	@SuppressWarnings("unchecked")
+	protected Collection<X509Certificate> downloadCertsFromAIA(String url) throws NHINDException
+	{
+		InputStream inputStream = null;
+
+		Collection<? extends Certificate> retVal = null;
+		
+		try
+		{
+			// in this case the cert is a binary representation
+			// of the CERT URL... transform to a string
+			final URL certURL = new URL(url);
+			
+			final URLConnection connection = certURL.openConnection();
+			
+			// the connection is not actually made until the input stream
+			// is open, so set the timeouts before getting the stream
+			connection.setConnectTimeout(DEFAULT_URL_CONNECTION_TIMEOUT);
+			connection.setReadTimeout(DEFAULT_URL_READ_TIMEOUT);
+			
+			// open the URL as in input stream
+			inputStream = connection.getInputStream();
+			
+			// download the 
+			retVal = CertificateFactory.getInstance("X.509").generateCertificates(inputStream);
+		}
+		catch (Exception e)
+		{
+			throw new NHINDException("Failed to download certificates from AIA extension.", e);
+		}
+		finally
+		{
+			IOUtils.closeQuietly(inputStream);
+		}
+		
+		return (Collection<X509Certificate>)retVal;
+	}
+	
     
     private String getIssuerAddress(X509Certificate certificate)
     {
