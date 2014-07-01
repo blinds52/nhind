@@ -22,6 +22,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 package org.nhind.xdm.impl;
 
 import java.io.IOException;
+import java.io.File;
 import java.util.Properties;
 
 import javax.activation.DataHandler;
@@ -36,6 +37,9 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.activation.DataHandler;
+import javax.activation.FileDataSource;
+import javax.activation.MimetypesFileTypeMap;
 
 import org.apache.commons.lang.StringUtils;
 import org.nhind.xdm.MailClient;
@@ -115,16 +119,25 @@ public class SmtpMailClient implements MailClient
         try
         {
             mimeAttach = new MimeBodyPart();
-            mimeAttach.attachFile(message.getDirectDocuments().toXdmPackage(messageId).toFile());
+            // the mime types map: see mime.types in META-INF for the map data
+            MimetypesFileTypeMap mimeTypesMap = new MimetypesFileTypeMap();
+            File xdmPackage = message.getDirectDocuments()
+                .toXdmPackage(messageId).toFile();
+            FileDataSource source = new FileDataSource(xdmPackage);
+            source.setFileTypeMap(mimeTypesMap);
+            DataHandler dh = new DataHandler(source);
+            mimeAttach.setDataHandler(dh);
+            mimeAttach.setFileName(source.getName());
+            mailBody.addBodyPart(mimeAttach);
         }
-        catch (IOException e)
+        catch (Exception e)
         {
-            throw new MessagingException("Unable to create/attach xdm zip file", e);
+            throw new MessagingException(
+                "Unable to create/attach xdm zip file", e);
         }
         
-        mailBody.addBodyPart(mimeAttach);
-
         mmessage.setContent(mailBody);
+        mmessage.saveChanges();
         Transport.send(mmessage);
     }
 
