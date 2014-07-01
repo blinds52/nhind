@@ -390,7 +390,8 @@ public abstract class DocumentRepositoryAbstract
             }
             else
             {
-                throw new IllegalArgumentException("Unknown audit method.");
+                throw new IllegalArgumentException("Unknown audit method: " +
+                                                   auditMethod);
             }
         }
         
