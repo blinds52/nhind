@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.GregorianCalendar;
 
 import javax.mail.internet.InternetAddress;
+import org.apache.commons.lang.StringUtils;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -226,7 +227,19 @@ public abstract class CertificateStore implements X509Store, CertificateResolver
         if (certs == null || certs.size() == 0)
         	return null;
         
-        retVal = filterUsable(certs);
+        boolean ignoredDomain = false;
+        final String domainList = System.getenv("nhind_ignore_invalid_cert_domains");
+        if (StringUtils.isNotEmpty(domainList)) {
+            for (final String domain : domainList.split(",")) {
+                if (theAddress.contains(domain)) {
+                    retVal = certs;
+                    ignoredDomain = true;
+                } 
+            }
+        }
+        if (!ignoredDomain) {
+            retVal = filterUsable(certs);
+        }
         
         if (retVal == null)
         	throw new NHINDException(AgentError.AllCertsInResolverInvalid);
